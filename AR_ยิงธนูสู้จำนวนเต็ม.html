@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AR ยิงธนูสู้จำนวนเต็ม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:'Mitr',sans-serif;background:#07111f;color:#fff}
+#camera{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);z-index:0}
+#three{position:fixed;inset:0;z-index:1;pointer-events:none}
+#handCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}
+#hud{position:fixed;inset:0;z-index:5;pointer-events:none}
+.panel{background:rgba(8,20,39,.78);border:2px solid rgba(255,255,255,.22);box-shadow:0 8px 30px #0006;backdrop-filter:blur(7px);border-radius:18px}
+#top{position:absolute;top:12px;left:10px;right:10px;display:flex;gap:10px;align-items:stretch}
+.stat{padding:8px 15px;min-width:110px;text-align:center}.label{font-size:13px;opacity:.75}.value{font-size:23px;font-weight:600}
+#questionBox{flex:1;max-width:470px;padding:8px 18px;text-align:center}.question{font-size:27px;font-weight:600}
+#message{position:absolute;top:112px;left:50%;transform:translateX(-50%);padding:8px 20px;border-radius:15px;background:rgba(4,15,28,.78);font-size:19px;white-space:nowrap}
+#side{position:absolute;right:12px;top:130px;display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+.btn{border:0;color:white;font-family:inherit;font-size:15px;font-weight:500;padding:10px 13px;border-radius:13px;cursor:pointer;box-shadow:0 4px 0 #0006;transition:.08s}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #0006}.on{background:#16a866}.off{background:#394453}.danger{background:#d94a55}
+#zones{position:absolute;inset:0;display:flex;pointer-events:none}.leftZone{width:25%;border-right:2px dashed #fff5;background:#39b9ff0a}.rightZone{width:50%;margin-left:25%;border-left:2px solid #fff1}
+#charge{position:absolute;left:calc(25% + 18px);bottom:18%;width:24px;height:180px;border:2px solid #fff9;border-radius:14px;background:#07111fb8;overflow:hidden;display:none}
+#chargeFill{position:absolute;bottom:0;left:0;right:0;height:0;background:linear-gradient(0deg,#24d47a,#ffd33d,#ff5c65);transition:height .06s}
+#chargeText{position:absolute;left:34px;bottom:75px;font-size:16px;text-shadow:0 2px 5px #000}
+#popup{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%) scale(.8);font-size:76px;font-weight:700;opacity:0;pointer-events:none;text-shadow:0 5px 12px #000;transition:.15s}
+#popup.show{opacity:1;transform:translate(-50%,-50%) scale(1);animation:popfade 1s forwards}@keyframes popfade{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-58%) scale(1)}}
+.good{color:#39e58b}.bad{color:#ff6571}
+#startScreen,#endScreen{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#07111fee,#163b66ee)}
+.card{width:min(680px,92vw);padding:30px;text-align:center}.title{font-size:42px;font-weight:700;margin-bottom:8px}.subtitle{font-size:18px;opacity:.85;margin-bottom:20px}
+.rules{text-align:left;line-height:1.8;background:#ffffff0d;padding:15px 20px;border-radius:15px;margin:15px 0}.check{text-align:left;padding:9px 14px;margin:7px 0;border-radius:12px;background:#ffffff0a}.spinner{display:inline-block;width:16px;height:16px;border:3px solid #ffffff55;border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-3px;margin-right:8px}@keyframes spin{to{transform:rotate(360deg)}}
+#checkBtn,#startBtn{font-size:20px;padding:13px 28px;background:#1976d2;margin-top:10px}.hidden{display:none!important}
+#endScore{font-size:55px;font-weight:700}.small{font-size:14px;opacity:.75}
+#fruitLabels{position:fixed;inset:0;z-index:4;pointer-events:none}
+.flabel{position:absolute;transform:translate(-50%,-50%);font-size:24px;font-weight:600;text-shadow:0 3px 7px #000;white-space:nowrap}
+@media(max-width:800px){.stat{min-width:75px;padding:6px}.question{font-size:20px}.value{font-size:18px}.label{font-size:10px}.title{font-size:32px}#side{top:auto;bottom:10px}.rightZone{width:50%}}
+</style>
+</head>
+<body>
+<video id="camera" autoplay muted playsinline></video>
+<canvas id="handCanvas"></canvas><div id="three"></div>
+
+<div id="startScreen">
+ <div class="card panel">
+  <div class="title">🏹 AR ยิงธนูสู้จำนวนเต็ม</div>
+  <div class="subtitle">ฝึกบวก–ลบจำนวนเต็มด้วยการยิงคำตอบที่ถูกต้อง</div>
+  <div class="rules">
+   🎯 ยิงเฉพาะผลไม้ที่มี <b>คำตอบถูกต้อง</b><br>
+   ✋ มือซ้าย = ถือคันธนู &nbsp; ✊ มือขวา = ดึงสาย<br>
+   🖐️ แบมือขวา = ปล่อยลูกธนู<br>
+   ⭐ ถูก +10 &nbsp; ❌ ผิด -5 &nbsp; 🍎 คำตอบถูกตกพื้น -5
+  </div>
+  <div id="checks">
+   <div class="check" id="camCheck"><span class="spinner"></span> เปิดกล้อง</div>
+   <div class="check" id="aiCheck"><span class="spinner"></span> โหลด AI Track มือ</div>
+  </div>
+  <button class="btn" id="checkBtn">🔍 ตรวจสอบกล้องและโหลด AI Track</button>
+  <button class="btn hidden" id="startBtn">▶ เริ่มเกม</button>
+  <div id="startError" class="small"></div>
+ </div>
+</div>
+
+<div id="hud" class="hidden">
+ <div id="zones"><div class="leftZone"></div><div class="rightZone"></div></div>
+ <div id="top">
+  <div class="stat panel"><div class="label">คะแนน</div><div class="value" id="score">0</div></div>
+  <div class="stat panel"><div class="label">เวลา</div><div class="value" id="time">00:00</div></div>
+  <div class="stat panel"><div class="label">ข้อ</div><div class="value" id="count">0/15</div></div>
+  <div id="questionBox" class="panel"><div class="label">โจทย์จำนวนเต็ม</div><div class="question" id="question">กำลังเตรียม...</div></div>
+  <div class="stat panel"><div class="label">มือ</div><div class="value" id="hands">ซ้าย: — ขวา: —</div></div>
+ </div>
+ <div id="message">พร้อมยิง 🎯</div>
+ <div id="side">
+  <button class="btn on" id="swapBtn">🔄 สลับมือ: เปิด</button>
+  <button class="btn on" id="dotsBtn">✋ จุดมือ: เปิด</button>
+  <button class="btn on" id="soundBtn">🔊 เสียง: เปิด</button>
+  <button class="btn danger" id="restartBtn">↻ เริ่มใหม่</button>
+ </div>
+ <div id="charge"><div id="chargeFill"></div></div><div id="chargeText">0%</div>
+ <div id="popup"></div>
+ <div id="fruitLabels"></div>
+</div>
+
+<div id="endScreen" class="hidden">
+ <div class="card panel">
+  <div class="title">🎉 จบเกม!</div>
+  <div class="subtitle">ยิงครบ 15 ข้อแล้ว</div>
+  <div id="endScore">0 คะแนน</div>
+  <div id="endDetail" class="subtitle"></div>
+  <button class="btn" id="againBtn">▶ เล่นอีกครั้ง</button>
+ </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script>
+/* ================= CONFIG ================= */
+const CONFIG={TOTAL:15,GRAVITY:9.8,MAX_CHARGE:100,MIN_FIRE:15,DRAW_MAX:.34,FRUIT_SPEED:.075,LOST_GRACE:300,EDGE_WAIT:1000};
+
+/* ================= DOM ================= */
+const $=id=>document.getElementById(id);
+const video=$('camera'), handCanvas=$('handCanvas'),ctx=handCanvas.getContext('2d');
+const startScreen=$('startScreen'),hud=$('hud'),endScreen=$('endScreen');
+
+/* ================= GAME STATE ================= */
+let score=0,questionNo=0,gameRunning=false,questionActive=false,startTime=0;
+let fruits=[],arrows=[],labels=[];
+let swapHands=false,showDots=true,soundOn=true;
+let leftHand=null,rightHand=null,drawState=false,lastRightSeen=0,charge=0,lastCharge=0;
+let currentQuestion=null,correctFruit=null,transitioning=false;
+let aiReady=false,cameraReady=false,handModel=null;
+
+/* ================= SOUND ================= */
+let audioCtx=null;
+function audioInit(){if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume()}
+function tone(freq=440,dur=.08,type='sine',gain=.06){if(!soundOn)return;audioInit();let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(gain,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+dur);o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+dur)}
+function sound(name){if(!soundOn)return;const m={click:[300,.05,'square'],camera:[500,.1,'sine'],ai:[700,.12,'sine'],ready:[900,.18,'triangle'],start:[520,.2,'triangle'],draw:[180,.1,'sawtooth'],release:[760,.12,'triangle'],weak:[120,.2,'square'],good:[900,.18,'sine'],bad:[160,.2,'square'],fall:[90,.25,'sawtooth'],edge:[330,.12,'triangle'],next:[600,.08,'sine'],end:[500,.4,'triangle']};let a=m[name]||m.click;tone(...a)}
+
+/* ================= THREE SETUP ================= */
+const scene=new THREE.Scene();
+const camera3=new THREE.OrthographicCamera(-1,1,1,-1,.1,100);
+camera3.position.z=10;
+const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);$('three').appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff,2));
+const bowGroup=new THREE.Group();scene.add(bowGroup);
+const bowTop=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,8,30,Math.PI*.72),new THREE.MeshStandardMaterial({color:0x8b4b22}));
+const bowBot=new THREE.Mesh(new THREE.TorusGeometry(.48,.025,8,30,Math.PI*.72),new THREE.MeshStandardMaterial({color:0x8b4b22}));
+bowTop.rotation.z=Math.PI*1.15;bowBot.rotation.z=Math.PI*.15;bowTop.position.y=.32;bowBot.position.y=-.32;
+bowGroup.add(bowTop,bowBot);
+const grip=new THREE.Mesh(new THREE.CylinderGeometry(.045,.055,.35,12),new THREE.MeshStandardMaterial({color:0x4c2a17}));bowGroup.add(grip);
+const stringMat=new THREE.LineBasicMaterial({color:0xf7e7c2});
+let stringGeo=new THREE.BufferGeometry(),stringLine=new THREE.Line(stringGeo,stringMat);bowGroup.add(stringLine);
+const arrowGroup=new THREE.Group();scene.add(arrowGroup);
+const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.65,8),new THREE.MeshStandardMaterial({color:0xd9c29c}));
+shaft.rotation.z=Math.PI/2;arrowGroup.add(shaft);
+const tip=new THREE.Mesh(new THREE.ConeGeometry(.055,.12,8),new THREE.MeshStandardMaterial({color:0xbfc8d6}));
+tip.rotation.z=-Math.PI/2;tip.position.x=.38;arrowGroup.add(tip);
+arrowGroup.visible=false;
+
+/* ================= HELPERS ================= */
+function worldFromScreen(x,y){return new THREE.Vector3((x/innerWidth-.5)*2,(.5-y/innerHeight)*2,0)}
+function screenFromWorld(v){return {x:(v.x/2+.5)*innerWidth,y:(.5-v.y/2)*innerHeight}}
+function setBow(pos){let x=Math.max(innerWidth*.5+25,Math.min(innerWidth*.98,pos.x));let y=Math.max(innerHeight*.2,Math.min(innerHeight*.82,pos.y));let w=worldFromScreen(x,y);bowGroup.position.copy(w);bowGroup.scale.setScalar(Math.min(innerWidth,innerHeight)/650);updateString()}
+function updateString(){let s=bowGroup.position,draw=drawState&&rightHand;let p=draw?worldFromScreen(rightHand.x,rightHand.y):new THREE.Vector3(s.x,s.y,0);let top=s.clone().add(new THREE.Vector3(0,.32,0)),bot=s.clone().add(new THREE.Vector3(0,-.32,0));let arr=new Float32Array([top.x,top.y,0,p.x,p.y,0,bot.x,bot.y,0]);stringGeo.setAttribute('position',new THREE.BufferAttribute(arr,3));stringGeo.computeBoundingSphere();arrowGroup.visible=drawState;arrowGroup.position.copy(p);if(drawState){let dx=s.x-p.x,dy=s.y-p.y;arrowGroup.rotation.z=Math.atan2(dy,dx);arrowGroup.position.z=.2}}
+function fruitMaterial(i){return new THREE.MeshStandardMaterial({color:[0xff4d5a,0xffc83d,0x4bd36b][i%3],roughness:.5})}
+function makeFruit(x,y,value,index){let g=new THREE.Group();let body=new THREE.Mesh(new THREE.SphereGeometry(.12,20,16),fruitMaterial(index));g.add(body);let leaf=new THREE.Mesh(new THREE.SphereGeometry(.045,10,8),new THREE.MeshStandardMaterial({color:0x2ca85c}));leaf.scale.set(1.5,.5,.6);leaf.position.set(.04,.13,0);g.add(leaf);g.position.set(x,y,0);scene.add(g);return {group:g,value,x,y,alive:true,correct:value===currentQuestion.answer}}
+function removeFruit(f){f.alive=false;scene.remove(f.group);const l=labels.find(a=>a.f===f);if(l){l.el.remove();labels=labels.filter(a=>a!==l)}}
+function addLabel(f){let el=document.createElement('div');el.className='flabel';el.textContent=f.value; $('fruitLabels').appendChild(el);labels.push({f,el})}
+function updateLabels(){labels.forEach(o=>{if(!o.f.alive)return;let p=screenFromWorld(o.f.group.position);o.el.style.left=p.x+'px';o.el.style.top=(p.y-8)+'px'})}
+
+/* ================= INTEGER QUESTIONS ================= */
+function makeQuestion(){
+ let a=Math.floor(Math.random()*21)-10,b=Math.floor(Math.random()*21)-10;
+ if(Math.random()<.5)b=-b;
+ const op=Math.random()<.5?'+':'-';
+ const ans=op==='+'?a+b:a-b;
+ let traps=new Set();while(traps.size<2){let d=[-3,-2,-1,1,2,3][Math.floor(Math.random()*6)];let v=ans+d;if(v!==ans)traps.add(v)}
+ return {a,b,op,answer:ans,traps:[...traps]};
+}
+function fmt(n){return n<0?'('+n+')':String(n)}
+function newQuestion(){
+ if(questionNo>=CONFIG.TOTAL){endGame();return}
+ questionNo++;currentQuestion=makeQuestion();questionActive=true;transitioning=false;
+ $('count').textContent=questionNo+'/'+CONFIG.TOTAL;
+ $('question').textContent=`${fmt(currentQuestion.a)} ${currentQuestion.op} ${fmt(currentQuestion.b)} = ?`;
+ $('message').textContent='เล็งคำตอบที่ถูกต้องแล้วปล่อย 🏹';
+ fruits.forEach(removeFruit);fruits=[];
+ const lanes=[.04,.12,.20],ys=[1.15,1.45,1.28];
+ let vals=[currentQuestion.answer,...currentQuestion.traps].sort(()=>Math.random()-.5);
+ vals.forEach((v,i)=>{let f=makeFruit(lanes[i]+.01,ys[i],v,i);fruits.push(f);addLabel(f)});
+ sound('next');
+}
+
+/* ================= HAND TRACKING ================= */
+function classify(hand){
+ if(!hand)return'—';
+ const lm=hand.landmarks, tips=[8,12,16,20],pips=[6,10,14,18];
+ let extended=tips.filter((t,i)=>Math.hypot(lm[t].x-lm[pips[i]].x,lm[t].y-lm[pips[i]].y)>.045).length;
+ return extended<=1?'กำมือ':extended>=3?'แบมือ':'กึ่งแบ';
+}
+function processHands(results){
+ leftHand=null;rightHand=null;
+ if(results.multiHandLandmarks){
+   for(let i=0;i<results.multiHandLandmarks.length;i++){
+    let h=results.multiHandLandmarks[i],label=results.multiHandedness?.[i]?.label||'Right';
+    if(swapHands)label=label==='Right'?'Left':'Right';
+    const center=h[9];
+    let item={landmarks:h,x:(1-center.x)*innerWidth,y:center.y*innerHeight};
+    if(label==='Left')leftHand=item;else rightHand=item;
+   }
+ }
+ $('hands').textContent=`ซ้าย: ${classify(leftHand)} ขวา: ${classify(rightHand)}`;
+ if(leftHand)setBow(leftHand);
+ handleDraw();
+ if(showDots)drawHands(results);else ctx.clearRect(0,0,innerWidth,innerHeight);
+}
+function handleDraw(){
+ if(!gameRunning)return;
+ const rh=rightHand,now=performance.now(),state=classify(rh);
+ if(rh)lastRightSeen=now;
+ if(!drawState && state==='กำมือ' && leftHand){
+   const dx=rh.x-(innerWidth*.5+innerWidth*.15),dy=rh.y-leftHand.y;
+   if(Math.hypot(dx,dy)<innerWidth*.32){drawState=true;charge=lastCharge=8;sound('draw');$('charge').style.display='block'}
+ }
+ if(drawState){
+   let targetX=rh?rh.x:(innerWidth*.5+innerWidth*.25);
+   let anchor=bowGroup.position;
+   let p=worldFromScreen(targetX,rh?rh.y:screenFromWorld(anchor).y);
+   let pull=Math.max(0,Math.min(.45,anchor.x-p.x));
+   let normalized=Math.max(0,(pull-.04)/.41);
+   let target=normalized*100;
+   charge += (target-charge)*.12;
+   if(Math.abs(target-charge)<.5)charge=target;
+   if(rh===null && now-lastRightSeen>CONFIG.LOST_GRACE){/* keep charge briefly */}
+   lastCharge=Math.max(lastCharge,charge);
+   $('chargeFill').style.height=charge+'%';$('chargeText').textContent=Math.round(charge)+'%';
+   updateString();
+   if(state==='แบมือ'){fireArrow();return}
+   if(rh===null && now-lastRightSeen>CONFIG.LOST_GRACE){drawState=false;$('charge').style.display='none';}
+ }else updateString();
+}
+function drawHands(results){
+ ctx.clearRect(0,0,innerWidth,innerHeight);ctx.save();ctx.scale(-1,1);ctx.translate(-innerWidth,0);
+ if(results.multiHandLandmarks)results.multiHandLandmarks.forEach(lm=>lm.forEach(p=>{ctx.beginPath();ctx.arc(p.x*innerWidth,p.y*innerHeight,4,0,Math.PI*2);ctx.fillStyle='#54f1b1';ctx.fill()}));
+ ctx.restore()
+}
+
+/* ================= ARROWS ================= */
+function fireArrow(){
+ let power=Math.max(lastCharge,charge);drawState=false;$('charge').style.display='none';arrowGroup.visible=false;lastCharge=0;
+ if(power<CONFIG.MIN_FIRE){sound('weak');showMessage('แรงยิงไม่พอ');showPopup('-0',false);return}
+ sound('release');let p=worldFromScreen(leftHand?.x||innerWidth*.75,leftHand?.y||innerHeight*.5);
+ let target=rightHand?worldFromScreen(rightHand.x,rightHand.y):p.clone().add(new THREE.Vector3(.5,0,0));
+ let dir=target.clone().sub(p).normalize();if(dir.x<0)dir.x=.15;
+ let a={group:new THREE.Group(),pos:p.clone(),vel:dir.multiplyScalar(.65+.013*power),life:0,stuck:false,hit:null};scene.add(a.group);
+ const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.55,7),new THREE.MeshStandardMaterial({color:0xe6d3ad}));shaft.rotation.z=Math.PI/2;
+ const head=new THREE.Mesh(new THREE.ConeGeometry(.04,.1,7),new THREE.MeshStandardMaterial({color:0xbcc5d1}));head.rotation.z=-Math.PI/2;head.position.x=.33;
+ a.group.add(shaft,head);arrows.push(a);
+}
+function updateArrows(dt){
+ arrows.forEach(a=>{
+  if(a.stuck)return;
+  a.life+=dt;a.vel.y-=CONFIG.GRAVITY*dt*.008;a.pos.addScaledVector(a.vel,dt*.06);a.group.position.copy(a.pos);
+  a.group.rotation.z=Math.atan2(a.vel.y,a.vel.x);
+  let hit=fruits.find(f=>f.alive&&a.pos.distanceTo(f.group.position)<.16);
+  if(hit){hitFruit(a,hit);return}
+  let sp=screenFromWorld(a.pos);
+  if(sp.x<innerWidth*.5||sp.x>innerWidth||sp.y<0||sp.y>innerHeight){stickArrow(a);return}
+  if(a.life>5)removeArrow(a);
+ })
+}
+function hitFruit(a,f){
+ a.stuck=true;a.hit=f;a.group.position.copy(f.group.position);f.group.add(a.group);a.vel.set(0,0,0);
+ if(f.correct){score=Math.max(0,score+10);$('score').textContent=score;showPopup('+10',true);showMessage('+10 ถูกต้อง 🎯');sound('good');questionActive=false;setTimeout(()=>{removeFruit(f);removeArrow(a);newQuestion()},CONFIG.EDGE_WAIT)}
+ else{score=Math.max(0,score-5);$('score').textContent=score;showPopup('-5',false);showMessage('-5 คำตอบผิด');sound('bad');removeFruit(f);removeArrow(a)}
+}
+function stickArrow(a){a.stuck=true;sound('edge');setTimeout(()=>removeArrow(a),CONFIG.EDGE_WAIT)}
+function removeArrow(a){if(!arrows.includes(a))return;scene.remove(a.group);arrows=arrows.filter(x=>x!==a)}
+function updateFruits(dt){
+ fruits.forEach(f=>{if(!f.alive||!questionActive)return;f.group.position.y-=CONFIG.FRUIT_SPEED*dt*.06;if(f.group.position.y<-.95){if(f.correct){score=Math.max(0,score-5);$('score').textContent=score;showPopup('-5',false);showMessage('-5 คำตอบที่ถูกต้องตกพื้น');sound('fall');questionActive=false;setTimeout(()=>{removeFruit(f);fruits.filter(x=>x!==f).forEach(removeFruit);fruits=[];newQuestion()},CONFIG.EDGE_WAIT)}else removeFruit(f)}})
+}
+
+/* ================= UI ================= */
+function showPopup(text,good){$('popup').className='';$('popup').textContent=text;$('popup').classList.add(good?'good':'bad','show');}
+function showMessage(t){$('message').textContent=t}
+function resize(){renderer.setSize(innerWidth,innerHeight);handCanvas.width=innerWidth;handCanvas.height=innerHeight}
+addEventListener('resize',resize);resize();
+function toggle(btn,on,label){btn.classList.toggle('on',on);btn.classList.toggle('off',!on);btn.textContent=label+(on?'เปิด':'ปิด')}
+$('swapBtn').onclick=()=>{swapHands=!swapHands;toggle($('swapBtn'),swapHands,'🔄 สลับมือ: ');sound('click')};
+$('dotsBtn').onclick=()=>{showDots=!showDots;toggle($('dotsBtn'),showDots,'✋ จุดมือ: ');sound('click')};
+$('soundBtn').onclick=()=>{soundOn=!soundOn;toggle($('soundBtn'),soundOn,'🔊 เสียง: ');if(soundOn)sound('click')};
+$('restartBtn').onclick=()=>location.reload();$('againBtn').onclick=()=>location.reload();
+
+/* ================= CAMERA + MEDIAPIPE ================= */
+async function setupHands(){
+ handModel=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+ handModel.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:.55,minTrackingConfidence:.55});
+ handModel.onResults(processHands);
+ aiReady=true;$('aiCheck').innerHTML='✅ โหลด AI Track มือสำเร็จ';sound('ai');
+}
+async function setupCamera(){
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false});
+  video.srcObject=stream;await video.play();cameraReady=true;$('camCheck').innerHTML='✅ เปิดกล้องสำเร็จ';sound('camera');
+  const cam=new Camera(video,{onFrame:async()=>{if(handModel)await handModel.send({image:video})},width:1280,height:720});cam.start();
+ }catch(e){cameraReady=false;$('camCheck').innerHTML='❌ เปิดกล้องไม่สำเร็จ';$('startError').textContent='กรุณาอนุญาตการใช้กล้อง แล้วกดตรวจสอบอีกครั้ง';}
+}
+$('checkBtn').onclick=async()=>{audioInit();sound('click');$('checkBtn').disabled=true;$('startError').textContent='กำลังตรวจสอบ...';try{await setupCamera();await setupHands()}finally{$('checkBtn').disabled=false;if(cameraReady&&aiReady){$('startBtn').classList.remove('hidden');$('startError').textContent='ระบบพร้อมแล้ว 🎉'}}};
+$('startBtn').onclick=()=>{audioInit();sound('start');startScreen.classList.add('hidden');hud.classList.remove('hidden');gameRunning=true;startTime=performance.now();newQuestion()};
+
+/* ================= GAME LOOP ================= */
+let lastT=performance.now();
+function loop(t){
+ requestAnimationFrame(loop);let dt=Math.min(.04,(t-lastT)/1000);lastT=t;
+ if(gameRunning){
+  $('time').textContent=new Date(Math.max(0,t-startTime)).toISOString().substr(14,5);
+  updateFruits(dt);updateArrows(dt);updateLabels();
+ }
+ renderer.render(scene,camera3);
+}
+function endGame(){
+ gameRunning=false;hud.classList.add('hidden');endScreen.classList.remove('hidden');$('endScore').textContent=score+' คะแนน';$('endDetail').textContent=`ตอบครบ ${CONFIG.TOTAL} ข้อ`;sound('end');
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
